@@ -86,7 +86,6 @@
             font-size: 1.1em; font-weight: bold; text-align: center;
             box-shadow: 0 6px 12px rgba(0,0,0,0.6); border: 2px solid white;
             white-space: nowrap;
-            /* Geen CSS transition hier, anders raakt het anti-overlap script in de war door animaties! */
         }
 
         .map-label.green { background-color: var(--buitenzorg-green); z-index: 10; }
@@ -97,7 +96,7 @@
             color: #333; border: 2px solid #999;
             font-size: 0.9em; padding: 4px 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-            z-index: 5; /* Lege velden naar de achtergrond */
+            z-index: 5; 
         }
 
         .group-name { display: block; font-size: 1.2em; text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
@@ -128,7 +127,7 @@
 
     <div class="map-container" id="mapWrapper">
         <div class="image-wrapper" id="imageWrapper">
-            <img src="plattegrond.jpg" class="map-image" id="mapImage" alt="Plattegrond Buitenzorg">
+            <img src="https://buitenzorg.scouting.nl/images/Fotos/Plattegrond%202025.jpg" class="map-image" id="mapImage" alt="Plattegrond Buitenzorg">
         </div>
         <div class="loading-overlay" id="loadingOverlay">Actuele gegevens ophalen...</div>
     </div>
@@ -305,12 +304,10 @@
     }
 
     // --- 🛠️ ANTI-OVERLAP ALGORITME ---
-    // Voorkomt dat label-blokjes onleesbaar over elkaar heen vallen
     function resolveCollisions() {
         const labels = Array.from(document.querySelectorAll('.map-label'));
         if (labels.length === 0) return;
 
-        // Reset marges
         labels.forEach(l => l.style.marginTop = '0px');
 
         let collision = true;
@@ -320,7 +317,6 @@
             collision = false;
             loops++;
             
-            // Sorteer van boven naar beneden op basis van hun Y positie op het scherm
             labels.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 
             for (let i = 0; i < labels.length; i++) {
@@ -328,9 +324,8 @@
                     let rect1 = labels[i].getBoundingClientRect();
                     let rect2 = labels[j].getBoundingClientRect();
                     
-                    let margin = 6; // 6 pixels tussenruimte tussen de blokjes
+                    let margin = 6;
 
-                    // Check of ze elkaar raken
                     if (!(rect1.right + margin < rect2.left || 
                           rect1.left > rect2.right + margin || 
                           rect1.bottom + margin < rect2.top || 
@@ -338,7 +333,6 @@
                         
                         collision = true;
                         
-                        // Duw het onderste bordje (j) verder naar beneden
                         let currentMargin = parseFloat(labels[j].style.marginTop || 0);
                         let overlap = (rect1.bottom - rect2.top) + margin;
                         
@@ -413,8 +407,6 @@
             imageWrapper.appendChild(label);
         }
 
-        // Als alle labels geplaatst zijn, roep de Anti-Overlap functie aan
-        // We doen dit in een kleine timeout zodat de browser tijd heeft de blokjes eerst te tekenen en meten.
         setTimeout(() => {
             resolveCollisions();
         }, 50);
@@ -462,6 +454,24 @@
     setInterval(() => { fetchData(); }, 5 * 60 * 1000);
 
     fetchData();
+
+    // =========================================================================
+    // 🛠️ KALIBRATIE TOOL 
+    // =========================================================================
+    if (window.location.search.includes('edit=true')) {
+        document.getElementById('mapImage').style.cursor = "crosshair";
+        document.getElementById('mapImage').addEventListener('click', function(e) {
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const leftPercent = ((x / rect.width) * 100).toFixed(1);
+            const topPercent = ((y / rect.height) * 100).toFixed(1);
+            
+            prompt("Kopieer deze coördinaten en plak ze bij het juiste veld in de code:", `{ top: "${topPercent}%", left: "${leftPercent}%" }`);
+        });
+    }
+
 </script>
 </body>
 </html>
