@@ -25,7 +25,7 @@ Dit dashboard is een **Single Page Application (SPA)** en draait volledig in de 
 ## ⚙️ Configuratie & Kalibratie Tool
 Omdat de app over een statische afbeelding (`Plattegrond 2025-2.jpg`) heen tekent, moeten de GPS-coördinaten (percentages) van de velden in de code worden vastgelegd. Dit zit al in de code, maar mocht je in de toekomst een **nieuwe plattegrond** uploaden, dan kun je de velden heel makkelijk opnieuw uitlijnen:
 
-1. Open de TV app in je browser op een computer en zet `?edit=true` achter de URL (bijv. `jouwwebsite.nl/tv.html?edit=true`).
+1. Open de TV app in je browser op een computer en zet `?edit=true` achter de URL (bijv. `jouwwebsite.nl/index.html?edit=true`).
 2. Je muis verandert in een dradenkruis.
 3. Klik exact in het midden van het veld op de kaart.
 4. Er verschijnt een pop-up met de nieuwe, pixel-perfecte coördinaten (bijv. `{ top: "36.9%", left: "23.4%" }`).
