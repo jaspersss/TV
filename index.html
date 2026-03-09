@@ -41,20 +41,26 @@
         .date-btn:hover { background: rgba(255,255,255,0.4); }
         .date-btn:active { transform: scale(0.95); }
         
-        .date-display { font-size: 2em; font-weight: bold; min-width: 320px; text-align: center; }
+        .date-display { 
+            font-size: 2em; font-weight: bold; min-width: 320px; text-align: center;
+            cursor: pointer; padding: 5px 15px; border-radius: 8px; transition: background 0.2s;
+        }
+        .date-display:hover { background: rgba(255,255,255,0.1); }
 
         .time-container { display: flex; align-items: center; }
-        .time-display { font-size: 1.5em; opacity: 0.8; font-weight: bold; }
+        .time-display { font-size: 1.5em; opacity: 0.8; font-weight: bold; margin-right: 10px;}
 
-        /* Fullscreen knop */
-        .fullscreen-btn {
+        /* Rechterknoppen (Actueel & Fullscreen) */
+        .header-action-btn {
             background: rgba(255,255,255,0.2); border: 2px solid white; color: white;
-            font-size: 1.2em; width: 40px; height: 40px; border-radius: 8px;
+            font-size: 1.2em; height: 40px; border-radius: 8px;
             cursor: pointer; display: flex; justify-content: center; align-items: center;
-            margin-left: 20px; transition: background 0.2s;
+            margin-left: 15px; transition: background 0.2s; font-weight: bold;
+            padding: 0 15px;
         }
-        .fullscreen-btn:hover { background: rgba(255,255,255,0.4); }
-        .fullscreen-btn:active { transform: scale(0.95); }
+        .header-action-btn.icon-only { width: 40px; padding: 0; }
+        .header-action-btn:hover { background: rgba(255,255,255,0.4); }
+        .header-action-btn:active { transform: scale(0.95); }
 
         /* --- Map Container --- */
         .map-container {
@@ -108,20 +114,62 @@
             background: rgba(0,0,0,0.8); color: white; display: flex;
             justify-content: center; align-items: center; font-size: 2em; z-index: 200;
         }
+
+        /* --- Modal & Kalender Pop-up --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center;
+            z-index: 2000; backdrop-filter: blur(2px);
+        }
+        .calendar-modal {
+            background: white; border-radius: 16px; padding: 25px; width: 90%; max-width: 450px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: #333;
+        }
+        .cal-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .cal-header h2 { margin: 0; color: var(--wood-brown); font-size: 1.8em; }
+        .cal-nav-btn {
+            background: #f1f5f1; border: none; color: var(--buitenzorg-green); font-size: 1.5em;
+            width: 50px; height: 50px; border-radius: 50%; cursor: pointer; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; transition: background 0.2s;
+        }
+        .cal-nav-btn:hover { background: #e0e8e0; }
+        .cal-nav-btn:active { transform: scale(0.95); }
+        
+        .cal-grid-header {
+            display: grid; grid-template-columns: repeat(7, 1fr); text-align: center;
+            font-weight: bold; color: #888; font-size: 1.1em; margin-bottom: 10px;
+        }
+        .cal-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+        }
+        .cal-day {
+            aspect-ratio: 1; display: flex; justify-content: center; align-items: center;
+            border-radius: 50%; font-weight: bold; color: #333; cursor: pointer; font-size: 1.3em;
+            transition: all 0.2s;
+        }
+        .cal-day:hover:not(.empty) { background: #f0f0f0; transform: scale(1.05); }
+        .cal-day.empty { background: none; cursor: default; }
+        .cal-day.selected { background: var(--buitenzorg-green); color: white; box-shadow: 0 4px 10px rgba(45,90,39,0.4); }
+        .cal-day.is-today:not(.selected) { border: 2px solid var(--buitenzorg-green); color: var(--buitenzorg-green); }
     </style>
 </head>
 <body>
 
     <div class="tv-header">
         <div class="tv-logo">🏕️ Scoutcentrum Buitenzorg</div>
+        
         <div class="date-controls">
             <button class="date-btn" onclick="changeDate(-1)">◀</button>
-            <div class="date-display" id="dateDisplay" onclick="goToToday()" style="cursor: pointer;" title="Klik om naar Vandaag te gaan">Datum laden...</div>
+            <div class="date-display" id="dateDisplay" onclick="openCalendar()" title="Kies een andere datum">Datum laden...</div>
             <button class="date-btn" onclick="changeDate(1)">▶</button>
         </div>
+        
         <div class="time-container">
             <div class="time-display" id="clockDisplay">00:00</div>
-            <button class="fullscreen-btn" onclick="toggleFullScreen()" title="Volledig scherm in/uitschakelen">⛶</button>
+            <button class="header-action-btn" onclick="goToToday()" title="Terug naar de weergave van dit moment">Actueel</button>
+            <button class="header-action-btn icon-only" onclick="toggleFullScreen()" title="Volledig scherm in/uitschakelen">⛶</button>
         </div>
     </div>
 
@@ -130,6 +178,20 @@
             <img src="https://buitenzorg.scouting.nl/images/Fotos/Plattegrond%202025.jpg" class="map-image" id="mapImage" alt="Plattegrond Buitenzorg">
         </div>
         <div class="loading-overlay" id="loadingOverlay">Actuele gegevens ophalen...</div>
+    </div>
+
+    <div class="modal-overlay" id="calendarModal" onclick="closeCalendarModal(event)">
+        <div class="calendar-modal" onclick="event.stopPropagation()">
+            <div class="cal-header">
+                <button class="cal-nav-btn" onclick="changeCalMonth(-1)">◀</button>
+                <h2 id="calMonthDisplay">Maand Jaar</h2>
+                <button class="cal-nav-btn" onclick="changeCalMonth(1)">▶</button>
+            </div>
+            <div class="cal-grid-header">
+                <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+        </div>
     </div>
 
 <script>
@@ -151,6 +213,7 @@
         "beverbos": { top: "58.5%", left: "65.4%", name: "Beverbos" },
         "trekkersveld": { top: "48.6%", left: "73.0%", name: "Trekkersveld" },
         "open vallei": { top: "43.3%", left: "59.7%", name: "Open Vallei" },
+        "pauls plekje": { top: "50.3%", left: "45.7%", name: "Pauls Plekje" },
         "vleermuizengrot": { top: "30.9%", left: "43.9%", name: "Vleermuizengrot" },
         "beverburcht": { top: "26.8%", left: "40.2%", name: "Beverburcht" },
         "uilennest": { top: "29.2%", left: "58.4%", name: "Uilennest" },
@@ -168,6 +231,7 @@
     let currentDate = new Date();
     currentDate.setHours(0,0,0,0);
     let userManuallyChangedDate = false;
+    let calViewDate = new Date();
 
     // --- KLOK EN AUTO-RENDER LOGICA ---
     let lastMinute = -1;
@@ -196,24 +260,16 @@
         }
     }
 
-    // --- DATUM LOGICA ---
+    // --- DATUM EN KALENDER LOGICA ---
     function formatHeaderDate(dateObj) {
-        let today = new Date(); today.setHours(0,0,0,0);
-        let target = new Date(dateObj); target.setHours(0,0,0,0);
-        let diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
-        
         let exactDate = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        exactDate = exactDate.charAt(0).toUpperCase() + exactDate.slice(1);
-
-        if (diffDays === 0) return `Vandaag - ${exactDate}`;
-        if (diffDays === 1) return `Morgen - ${exactDate}`;
-        if (diffDays === -1) return `Gisteren - ${exactDate}`;
-        return exactDate;
+        return exactDate.charAt(0).toUpperCase() + exactDate.slice(1);
     }
 
     function changeDate(days) {
         userManuallyChangedDate = true;
         currentDate.setDate(currentDate.getDate() + days);
+        checkIfToday();
         renderMap();
     }
 
@@ -221,7 +277,69 @@
         userManuallyChangedDate = false;
         currentDate = new Date();
         currentDate.setHours(0,0,0,0);
+        document.getElementById('calendarModal').style.display = 'none';
         renderMap();
+    }
+
+    function checkIfToday() {
+        let today = new Date();
+        if (currentDate.getDate() === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) {
+            userManuallyChangedDate = false; 
+        }
+    }
+
+    function openCalendar() {
+        calViewDate = new Date(currentDate); 
+        renderCalendarGrid();
+        document.getElementById('calendarModal').style.display = 'flex';
+    }
+
+    function closeCalendarModal(e) {
+        if (e.target === document.getElementById('calendarModal')) {
+            document.getElementById('calendarModal').style.display = 'none';
+        }
+    }
+
+    function changeCalMonth(offset) {
+        calViewDate.setMonth(calViewDate.getMonth() + offset);
+        renderCalendarGrid();
+    }
+
+    function selectDateFromCalendar(y, m, d) {
+        userManuallyChangedDate = true;
+        currentDate = new Date(y, m, d, 0, 0, 0);
+        checkIfToday();
+        
+        document.getElementById('calendarModal').style.display = 'none';
+        renderMap(); 
+    }
+
+    function renderCalendarGrid() {
+        const year = calViewDate.getFullYear();
+        const month = calViewDate.getMonth();
+        const monthNames = ["Januari", "Februari", "Maart", "April", "Mei", "Juni", "Juli", "Augustus", "September", "Oktober", "November", "December"];
+        
+        document.getElementById('calMonthDisplay').textContent = `${monthNames[month]} ${year}`;
+
+        let firstDay = new Date(year, month, 1).getDay();
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        firstDay = firstDay === 0 ? 7 : firstDay;
+
+        let html = '';
+        for (let i = 1; i < firstDay; i++) { html += `<div class="cal-day empty"></div>`; }
+        
+        let today = new Date();
+        for (let i = 1; i <= daysInMonth; i++) {
+            let isSelected = (year === currentDate.getFullYear() && month === currentDate.getMonth() && i === currentDate.getDate());
+            let isToday = (year === today.getFullYear() && month === today.getMonth() && i === today.getDate());
+            
+            let classes = "cal-day";
+            if (isSelected) classes += " selected";
+            if (isToday) classes += " is-today";
+
+            html += `<div class="${classes}" onclick="selectDateFromCalendar(${year}, ${month}, ${i})">${i}</div>`;
+        }
+        document.getElementById('calGrid').innerHTML = html;
     }
 
     // --- ICS PARSERS ---
@@ -303,7 +421,7 @@
         return result;
     }
 
-    // --- 🛠️ ANTI-OVERLAP ALGORITME ---
+    // --- ANTI-OVERLAP ALGORITME ---
     function resolveCollisions() {
         const labels = Array.from(document.querySelectorAll('.map-label'));
         if (labels.length === 0) return;
@@ -345,7 +463,7 @@
 
     // --- RENDER DE KAART ---
     function renderMap() {
-        document.getElementById('dateDisplay').innerText = formatHeaderDate(currentDate);
+        document.getElementById('dateDisplay').innerHTML = `${formatHeaderDate(currentDate)} <span style="font-size: 0.7em; opacity: 0.8; margin-left: 10px;">📅</span>`;
 
         document.querySelectorAll('.map-label').forEach(el => el.remove());
 
