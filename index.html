@@ -248,7 +248,7 @@
     const reservationUrl = "https://www.labelbooking.nl/calendar/reservation/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
     const planningUrl = "https://www.labelbooking.nl/calendar/planning/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
     
-    // De betrouwbare originele proxy array
+    // De betrouwbare originele proxy array (snelste wint)
     const proxies = [
         "https://corsproxy.io/?",
         "https://api.allorigins.win/raw?url=",
@@ -501,7 +501,7 @@
         let endOfDay = new Date(currentDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        // 1. Render Kampstaf
+        // 1. Render Kampstaf (Alleen voornamen)
         let todaysStaff = allStaff.filter(e => e.start <= endOfDay && e.end >= currentDate);
         let firstNames = [...new Set(todaysStaff.map(s => s.summary.split(' ')[0]))].join(', ');
         
@@ -527,6 +527,7 @@
                 r.rawTerrains.some(t => t.includes(fieldKey) || fieldKey.includes(t))
             );
 
+            // Sorteer reserveringen op tijd zodat de meest urgente op het bordje komt
             fieldReservations.sort((a, b) => a.start - b.start);
 
             let activeRes = null;
@@ -541,17 +542,31 @@
                 activeRes = r;
                 
                 let isCheckedIn = st.includes('ingecheckt') || st.includes('aanwezig');
+                
+                // Real-time controle
                 let arrivingRealToday = r.start.getDate() === realNow.getDate() && r.start.getMonth() === realNow.getMonth() && r.start.getFullYear() === realNow.getFullYear();
-                let departingRealToday = r.end.getDate() === realNow.getDate() && r.end.getMonth() === realNow.getMonth() && r.end.getFullYear() === realNow.getFullYear();
+                
+                // Controle voor de dag die momenteel op het scherm getoond wordt
+                let isArrivingViewedDay = r.start.getDate() === currentDate.getDate() && r.start.getMonth() === currentDate.getMonth() && r.start.getFullYear() === currentDate.getFullYear();
+                let isDepartingViewedDay = r.end.getDate() === currentDate.getDate() && r.end.getMonth() === currentDate.getMonth() && r.end.getFullYear() === currentDate.getFullYear();
 
+                // De slimmere TV kleuren logica (zonder de tijden in het label)
                 if (isCheckedIn) {
-                    if (r.end < realNow) displayState = 'red';
-                    else if (departingRealToday) displayState = 'orange';
-                    else displayState = 'green';
+                    if (r.end < realNow) {
+                        displayState = 'red';
+                    } else if (isDepartingViewedDay) {
+                        displayState = 'orange';
+                    } else {
+                        displayState = 'green';
+                    }
                 } else {
-                    if (r.start < realNow) displayState = 'red';
-                    else if (arrivingRealToday) displayState = 'orange';
-                    else displayState = 'gray';
+                    if (r.start < realNow) {
+                        displayState = 'red';
+                    } else if (arrivingRealToday && isArrivingViewedDay) {
+                        displayState = 'orange';
+                    } else {
+                        displayState = 'gray';
+                    }
                 }
                 break; 
             }
@@ -563,6 +578,7 @@
             if (activeRes && displayState !== 'empty') {
                 label.className = `map-label ${displayState}`;
                 
+                // Opschonen groepsnaam (haal onnodige boeking-ID's en nummers weg)
                 let shortName = activeRes.summary.replace(/\s*\([^)]*\)$/, '').trim();
                 if(shortName.length > 25) shortName = shortName.substring(0, 22) + "...";
 
@@ -581,7 +597,7 @@
         }, 50);
     }
 
-    // --- DATA OPHALEN (De Oude, Vertrouwde, Snelle Methode) ---
+    // --- DATA OPHALEN (Snelle methode) ---
     async function fetchFastest(url) {
         const promises = proxies.map(async (proxy) => {
             const controller = new AbortController();
