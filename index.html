@@ -248,10 +248,10 @@
     const reservationUrl = "https://www.labelbooking.nl/calendar/reservation/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
     const planningUrl = "https://www.labelbooking.nl/calendar/planning/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
     
-    // Robuustere volgorde van proxy's
+    // De betrouwbare originele proxy array
     const proxies = [
-        "https://api.allorigins.win/raw?url=",
         "https://corsproxy.io/?",
+        "https://api.allorigins.win/raw?url=",
         "https://api.codetabs.com/v1/proxy?quest="
     ];
 
@@ -581,46 +581,41 @@
         }, 50);
     }
 
-    // --- SEQUENTIEEL DATA OPHALEN (Voorkomt blokkades) ---
-    async function fetchICS(url) {
-        for (let proxy of proxies) {
+    // --- DATA OPHALEN (De Oude, Vertrouwde, Snelle Methode) ---
+    async function fetchFastest(url) {
+        const promises = proxies.map(async (proxy) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); 
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 6000); 
                 const res = await fetch(proxy + encodeURIComponent(url), { signal: controller.signal });
                 clearTimeout(timeoutId);
-                
-                if (!res.ok) continue;
-                
+                if (!res.ok) throw new Error('Proxy error');
                 const text = await res.text();
-                if (text.includes('BEGIN:VCALENDAR')) {
-                    return text;
-                }
+                if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Geen ICS');
+                return text;
             } catch (err) {
-                // Foutje? Probeer gewoon rustig de volgende proxy.
+                clearTimeout(timeoutId); throw err; 
             }
-        }
-        return null;
+        });
+        return await Promise.any(promises);
     }
 
     async function fetchData() {
         document.getElementById('loadingOverlay').style.display = 'flex';
         try {
-            // Eerst halen we de reserveringen op
-            const resData = await fetchICS(reservationUrl);
-            if (resData) {
-                allReservations = [];
-                parseICS(resData).forEach(e => {
-                    let details = extractDetails(e.description, e.location);
-                    e.rawTerrains = details.terrains;
-                    e.status = details.status;
-                    allReservations.push(e);
-                });
-            }
+            // Haal reserveringen op
+            const resData = await fetchFastest(reservationUrl);
+            allReservations = [];
+            parseICS(resData).forEach(e => {
+                let details = extractDetails(e.description, e.location);
+                e.rawTerrains = details.terrains;
+                e.status = details.status;
+                allReservations.push(e);
+            });
 
-            // Daarna halen we pas de planning op (zo voorkomen we een anti-spam rate-limit)
-            const planData = await fetchICS(planningUrl);
-            if (planData) {
+            // Haal de stafplanning op
+            try {
+                const planData = await fetchFastest(planningUrl);
                 allStaff = [];
                 parseICS(planData).forEach(e => {
                     let s = e.summary ? e.summary.toLowerCase() : '';
@@ -633,6 +628,8 @@
                         });
                     }
                 });
+            } catch (staffErr) {
+                console.warn("Kon staf niet laden, we gaan verder met reserveringen.");
             }
 
             renderMap();
