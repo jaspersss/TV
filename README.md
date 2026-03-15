@@ -27,9 +27,5 @@ Mocht er een nieuwe plattegrond komen, gebruik dan de ingebouwde kalibratietool:
 3. Klik exact in het midden van het veld op de kaart.
 4. Er verschijnt direct een pop-up met de juiste `{ top: "...", left: "..." }` code om in `tv.html` te plakken.
 
-## 🛠️ Gebruik op een Chromecast / TV
-Voor continu gebruik (24/7) zonder uitval wordt aangeraden dit te draaien via een **Raspberry Pi** of **Mini-PC stick** in "Kiosk Modus" (Chrome `--kiosk`). 
-Draaien op een Google TV Chromecast kan ook: installeer een 'Kiosk Browser' app vanuit de Play Store en navigeer naar de URL.
-
 ---
 *Gemaakt met ❤️ voor de staf van Scoutcentrum Buitenzorg.*
