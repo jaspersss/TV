@@ -543,29 +543,29 @@
                 
                 let isCheckedIn = st.includes('ingecheckt') || st.includes('aanwezig');
                 
-                // Real-time controle
-                let arrivingRealToday = r.start.getDate() === realNow.getDate() && r.start.getMonth() === realNow.getMonth() && r.start.getFullYear() === realNow.getFullYear();
+                // Omzetten naar strings is kogelvrij over milliseconde-grenzen heen
+                let realNowStr = realNow.toDateString();
+                let viewDayStr = currentDate.toDateString();
                 
-                // Controle voor de dag die momenteel op het scherm getoond wordt
-                let isArrivingViewedDay = r.start.getDate() === currentDate.getDate() && r.start.getMonth() === currentDate.getMonth() && r.start.getFullYear() === currentDate.getFullYear();
-                let isDepartingViewedDay = r.end.getDate() === currentDate.getDate() && r.end.getMonth() === currentDate.getMonth() && r.end.getFullYear() === currentDate.getFullYear();
+                let isArrivingViewedDay = r.start.toDateString() === viewDayStr;
+                let isDepartingViewedDay = r.end.toDateString() === viewDayStr;
 
-                // De slimmere TV kleuren logica (zonder de tijden in het label)
+                // De kogelvrije TV kleuren logica (zonder tijden in de label tekst)
                 if (isCheckedIn) {
                     if (r.end < realNow) {
-                        displayState = 'red';
+                        displayState = 'red'; // Te laat uitgecheckt
                     } else if (isDepartingViewedDay) {
-                        displayState = 'orange';
+                        displayState = 'orange'; // Vertrekt op de dag die we nu bekijken
                     } else {
-                        displayState = 'green';
+                        displayState = 'green'; // Staat er, en vertrekt nog niet
                     }
                 } else {
                     if (r.start < realNow) {
-                        displayState = 'red';
-                    } else if (arrivingRealToday && isArrivingViewedDay) {
-                        displayState = 'orange';
+                        displayState = 'red'; // Te laat ingecheckt
+                    } else if (isArrivingViewedDay && (realNowStr === viewDayStr)) {
+                        displayState = 'orange'; // Komt vandaag in het echt aan!
                     } else {
-                        displayState = 'gray';
+                        displayState = 'gray'; // Gepland in de toekomst (of aankomst in de toekomst)
                     }
                 }
                 break; 
