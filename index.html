@@ -84,6 +84,26 @@
             height: auto;
         }
 
+        /* --- Kampstaf Overlay --- */
+        .staff-overlay {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 1.4em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 50;
+            border-left: 6px solid var(--buitenzorg-green);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        .staff-overlay strong { color: var(--buitenzorg-green); font-weight: 800; }
+
         /* --- Overlays (Labels op de kaart) --- */
         .map-label {
             position: absolute;
@@ -91,11 +111,14 @@
             color: white; padding: 6px 12px; border-radius: 8px;
             font-size: 1.1em; font-weight: bold; text-align: center;
             box-shadow: 0 6px 12px rgba(0,0,0,0.6); border: 2px solid white;
-            white-space: nowrap;
+            white-space: nowrap; z-index: 10;
         }
 
-        .map-label.green { background-color: var(--buitenzorg-green); z-index: 10; }
-        .map-label.orange { background-color: #e67e22; z-index: 10; }
+        /* Kleuren Status Logica */
+        .map-label.green { background-color: var(--buitenzorg-green); }
+        .map-label.orange { background-color: #e67e22; }
+        .map-label.red { background-color: #e74c3c; }
+        .map-label.gray { background-color: #7f8c8d; }
         
         .map-label.empty {
             background-color: #ffffff; 
@@ -176,6 +199,8 @@
     <div class="map-container" id="mapWrapper">
         <div class="image-wrapper" id="imageWrapper">
             <img src="https://buitenzorg.scouting.nl/images/Fotos/Plattegrond%202025.jpg" class="map-image" id="mapImage" alt="Plattegrond Buitenzorg">
+            
+            <div class="staff-overlay" id="staffOverlay">🧑‍🌾 Staf: <strong>Laden...</strong></div>
         </div>
         <div class="loading-overlay" id="loadingOverlay">Actuele gegevens ophalen...</div>
     </div>
@@ -221,6 +246,8 @@
     };
 
     const reservationUrl = "https://www.labelbooking.nl/calendar/reservation/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
+    const planningUrl = "https://www.labelbooking.nl/calendar/planning/all.ics?organisation=5cc47752-2b5a-4664-9f45-9748deea1939&user=273a8401-5005-47cc-8e8b-ededa19d847d";
+    
     const proxies = [
         "https://corsproxy.io/?",
         "https://api.allorigins.win/raw?url=",
@@ -228,6 +255,7 @@
     ];
 
     let allReservations = [];
+    let allStaff = [];
     let currentDate = new Date();
     currentDate.setHours(0,0,0,0);
     let userManuallyChangedDate = false;
@@ -472,11 +500,26 @@
         let endOfDay = new Date(currentDate);
         endOfDay.setHours(23, 59, 59, 999);
 
+        // 1. Render Kampstaf
+        let todaysStaff = allStaff.filter(e => e.start <= endOfDay && e.end >= currentDate);
+        // Pak alleen de voornamen (alles voor de eerste spatie)
+        let firstNames = [...new Set(todaysStaff.map(s => s.summary.split(' ')[0]))].join(', ');
+        
+        const staffOverlay = document.getElementById('staffOverlay');
+        if (firstNames) {
+            staffOverlay.innerHTML = `🧑‍🌾 Staf: <strong>${firstNames}</strong>`;
+            staffOverlay.style.display = 'flex';
+        } else {
+            staffOverlay.style.display = 'none'; // Verberg het vlak als er niemand is ingeroosterd
+        }
+
+        // 2. Render Velden
         let dailyRes = allReservations.filter(e => {
             return e.start <= endOfDay && e.end > startOfDay;
         });
 
         const imageWrapper = document.getElementById('imageWrapper');
+        let realNow = new Date(); 
 
         for (const [fieldKey, fieldData] of Object.entries(mapCoordinates)) {
             
@@ -497,10 +540,19 @@
 
                 activeRes = r;
                 
-                if (st.includes('ingecheckt') || st.includes('aanwezig')) {
-                    displayState = 'green';
+                let isCheckedIn = st.includes('ingecheckt') || st.includes('aanwezig');
+                let arrivingRealToday = r.start.getDate() === realNow.getDate() && r.start.getMonth() === realNow.getMonth() && r.start.getFullYear() === realNow.getFullYear();
+                let departingRealToday = r.end.getDate() === realNow.getDate() && r.end.getMonth() === realNow.getMonth() && r.end.getFullYear() === realNow.getFullYear();
+
+                // De nieuwe kleurenlogica!
+                if (isCheckedIn) {
+                    if (r.end < realNow) displayState = 'red';
+                    else if (departingRealToday) displayState = 'orange';
+                    else displayState = 'green';
                 } else {
-                    displayState = 'orange';
+                    if (r.start < realNow) displayState = 'red';
+                    else if (arrivingRealToday) displayState = 'orange';
+                    else displayState = 'gray'; // Gepland in de toekomst
                 }
                 break; 
             }
@@ -512,9 +564,7 @@
             if (activeRes && displayState !== 'empty') {
                 label.className = `map-label ${displayState}`;
                 
-                // NIEUW: Haal het boekingsnummer (tussen haakjes aan het eind) weg!
                 let shortName = activeRes.summary.replace(/\s*\([^)]*\)$/, '').trim();
-                
                 if(shortName.length > 25) shortName = shortName.substring(0, 22) + "...";
 
                 label.innerHTML = `<span class="field-name">${fieldData.name}</span>
@@ -532,34 +582,55 @@
         }, 50);
     }
 
-    // --- DATA OPHALEN ---
-    async function fetchData() {
-        document.getElementById('loadingOverlay').style.display = 'flex';
+    // --- DATA OPHALEN (Proxy Racer voor zowel Planning als Reserveringen) ---
+    async function fetchFastest(url) {
         try {
             const promises = proxies.map(async (proxy) => {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000); 
-                try {
-                    const res = await fetch(proxy + encodeURIComponent(reservationUrl), { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (!res.ok) throw new Error('Proxy error');
-                    const text = await res.text();
-                    if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Geen ICS');
-                    return text;
-                } catch (err) {
-                    clearTimeout(timeoutId); throw err; 
-                }
+                const res = await fetch(proxy + encodeURIComponent(url), { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const text = await res.text();
+                if (!text.includes('BEGIN:VCALENDAR')) throw new Error();
+                return text;
             });
-            const data = await Promise.any(promises);
+            return await Promise.any(promises);
+        } catch (e) { return null; }
+    }
+
+    async function fetchData() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        try {
+            const [resData, planData] = await Promise.all([
+                fetchFastest(reservationUrl),
+                fetchFastest(planningUrl)
+            ]);
             
-            allReservations = [];
-            let rEvents = parseICS(data);
-            rEvents.forEach(e => {
-                let details = extractDetails(e.description, e.location);
-                e.rawTerrains = details.terrains;
-                e.status = details.status;
-                allReservations.push(e);
-            });
+            if (resData) {
+                allReservations = [];
+                parseICS(resData).forEach(e => {
+                    let details = extractDetails(e.description, e.location);
+                    e.rawTerrains = details.terrains;
+                    e.status = details.status;
+                    allReservations.push(e);
+                });
+            }
+
+            if (planData) {
+                allStaff = [];
+                parseICS(planData).forEach(e => {
+                    let s = e.summary ? e.summary.toLowerCase() : '';
+                    let d = e.description ? e.description.toLowerCase() : '';
+                    // Negeer klusteam en vakanties
+                    if (!['klusteam','evenement','vakantie'].some(x => s.includes(x) || d.includes(x))) {
+                        let names = e.summary ? e.summary.split(',') : ['Onbekend'];
+                        names.forEach(name => {
+                            let cleanName = name.trim();
+                            if (cleanName) allStaff.push({ ...e, summary: cleanName });
+                        });
+                    }
+                });
+            }
 
             renderMap();
         } catch (e) {
